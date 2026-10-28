@@ -1,0 +1,230 @@
+"""``ledger capsule`` - a deterministic, paste-anywhere context snapshot.
+
+CAPSULE.md condenses the ledger into roughly one screenful (hard-capped
+below 150 lines) so any AI tool can restore session context offline:
+
+  * Project snapshot,
+  * Key decisions (newest first),
+  * "Don't do this again" (rejected alternatives with reasons),
+  * Recently changed files,
+  * Open items (pending entries).
+
+The output is a **pure function of the ledger** - no wall-clock, no random
+ordering - so two runs over the same data produce identical bytes.
+"""
+from __future__ import annotations
+
+from collections import Counter
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+from codeledger import store
+from codeledger.errors import LedgerError
+from codeledger.gitutil import run_git
+
+__all__ = [
+    "MAX_LINES",
+    "generate_capsule",
+    "write_capsule",
+    "refresh_capsule",
+    "current_branch",
+    "clip",
+]
+
+MAX_LINES = 150
+MAX_DECISIONS = 15
+MAX_REJECTED = 20
+MAX_FILES = 12
+MAX_PENDING = 10
+_CLIP = 110
+
+
+def clip(text: str, limit: int = _CLIP) -> str:
+    """Collapse whitespace and truncate long text with a stable ellipsis."""
+    flat = " ".join((text or "").split())
+    if len(flat) <= limit:
+        return flat
+    return flat[: limit - 1].rstrip() + "\u2026"
+
+
+def _newest_first(entries: List[store.Entry]) -> List[store.Entry]:
+    """Sorted newest-first with a stable id tiebreak (deterministic)."""
+    return sorted(entries, key=lambda e: (e.timestamp, e.number), reverse=True)
+
+
+def _decisions_section(entries: List[store.Entry]) -> List[str]:
+    lines: List[str] = ["", "## Key decisions (newest first)", ""]
+    ordered = [e for e in _newest_first(entries) if e.status == "committed"]
+    shown = ordered[:MAX_DECISIONS]
+    if not shown:
+        lines.append("- (none yet - committed AI decisions will appear here)")
+    for e in shown:
+        flags = f"tests {fmt_yes_no(e.tests_included)}, gate {e.gate_result}"
+        lines.append(f"- {e.id} · {e.tool} · {e.model} · {flags}")
+        lines.append(f"  {clip(e.decision)}")
+        lines.append(f"  files: {clip(', '.join(e.files), 90) if e.files else '(none)'}")
+    remaining = len(ordered) - len(shown)
+    if remaining > 0:
+        lines.append(f"- … {remaining} more committed decisions in .ledger/decisions.jsonl")
+    return lines
+
+
+def fmt_yes_no(flag: bool) -> str:
+    """Compact boolean display for the capsule."""
+    return "yes" if flag else "no"
+
+
+def _dont_repeat_section(entries: List[store.Entry]) -> List[str]:
+    lines: List[str] = ["", "## Don't do this again", ""]
+    pairs: List[Tuple[str, str, str]] = []
+    for e in _newest_first(entries):
+        for alt in e.rejected_alternatives:
+            approach = clip(str(alt.get("approach", "")), 90)
+            reason = clip(str(alt.get("reason", "")), 90)
+            pairs.append((approach, reason, e.id))
+    shown = pairs[:MAX_REJECTED]
+    if not shown:
+        lines.append("- (nothing rejected so far - answers AI assistants gave before)")
+    for approach, reason, entry_id in shown:
+        lines.append(f"- {approach} - reason: {reason} (rejected in {entry_id})")
+    remaining = len(pairs) - len(shown)
+    if remaining > 0:
+        lines.append(f"- … {remaining} more rejected approaches in .ledger/decisions.jsonl")
+    return lines
+
+
+def _recent_files_section(entries: List[store.Entry]) -> List[str]:
+    lines: List[str] = ["", "## Recently changed files", ""]
+    counter: Counter = Counter()
+    for e in _newest_first(entries):
+        for f in e.files:
+            counter[f] += 1
+    common = sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))[:MAX_FILES]
+    if not common:
+        lines.append("- (no files recorded yet)")
+    for name, count in common:
+        lines.append(f"- {name} ({count} entr{'y' if count == 1 else 'ies'})")
+    remaining = len(counter) - len(common)
+    if remaining > 0:
+        lines.append(f"- … {remaining} more files in the ledger")
+    return lines
+
+
+def _open_items_section(entries: List[store.Entry]) -> List[str]:
+    lines: List[str] = ["", "## Open items (pending entries)", ""]
+    pending = [e for e in _newest_first(entries) if e.status == "pending"][:MAX_PENDING]
+    if not pending:
+        lines.append("- (none - every recorded change is linked to a commit)")
+    for e in pending:
+        lines.append(f"- {e.id} (unlinked commit): {clip(e.decision)}")
+    remaining = len([e for e in entries if e.status == "pending"]) - len(pending)
+    if remaining > 0:
+        lines.append(f"- … {remaining} more pending entries in .ledger/decisions.jsonl")
+    return lines
+
+
+def _snapshot_section(
+    entries: List[store.Entry], repo_name: str, branch: Optional[str]
+) -> List[str]:
+    c = store.counts(entries)
+    models = sorted({e.model for e in entries if e.model})
+    tools = sorted({e.tool for e in entries if e.tool})
+    lines = [
+        "This capsule is generated by CodeLedger. Paste it into any AI tool at",
+        "session start to restore project memory. Raw data: .ledger/decisions.jsonl",
+        "",
+        "## Project snapshot",
+        "",
+        f"- Repo: {repo_name}" + (f" (branch {branch})" if branch else ""),
+        f"- Entries: {c['total']} total, {c['committed']} committed, {c['pending']} pending",
+        f"- Models seen: {', '.join(models) if models else '(none)'}",
+        f"- Tools seen: {', '.join(tools) if tools else '(none)'}",
+        f"- Tests included in {c['tests_included']}/{c['total']} entries; "
+        f"gate pass {c['gate_pass']} / fail {c['gate_fail']} / bypassed {c['gate_bypassed']}",
+    ]
+    if not entries:
+        lines.append(
+            "- No entries yet. Run `ledger log` after your next AI change to start the ledger."
+        )
+    return lines
+
+
+def generate_capsule(
+    entries: List[store.Entry],
+    repo_path: Path,
+    branch: Optional[str] = None,
+) -> str:
+    """Build CAPSULE.md content deterministically from the ledger."""
+    repo_name = repo_path.name or "repository"
+    lines: List[str] = [f"# CodeLedger capsule - {repo_name}"]
+    lines += _snapshot_section(entries, repo_name, branch)
+    lines += _decisions_section(entries)
+    lines += _dont_repeat_section(entries)
+    lines += _recent_files_section(entries)
+    lines += _open_items_section(entries)
+    if len(lines) >= MAX_LINES:
+        hard_cap = MAX_LINES - 2
+        dropped = len(lines) - hard_cap
+        lines = lines[:hard_cap] + [f"(capsule truncated - {dropped} line(s) dropped)"]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_capsule(
+    entries: List[store.Entry],
+    repo_path: Path,
+    branch: Optional[str] = None,
+    out_path: Optional[Path] = None,
+) -> Tuple[str, Path]:
+    """Generate and write CAPSULE.md (default: ``.ledger/CAPSULE.md``).
+
+    Returns the text and the path written. Raises :class:`LedgerError` when
+    the target directory cannot be created.
+    """
+    text = generate_capsule(entries, repo_path, branch)
+    target = out_path or (repo_path / store.LEDGER_DIR / store.CAPSULE_FILE)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        from codeledger.util import write_text_lf
+
+        write_text_lf(target, text)
+    except OSError as exc:
+        raise LedgerError(f"could not write capsule: {exc}") from exc
+    return text, target
+
+
+# ---------------------------------------------------------------------------
+# Auto-refresh: keep the capsule in step with the ledger, silently
+# ---------------------------------------------------------------------------
+
+
+def current_branch(repo: Path) -> Optional[str]:
+    """Current branch name, or ``None`` (no git, detached or unborn HEAD).
+
+    Mirrors the lookup in ``cli.capsule_cmd``: same git plumbing, same
+    tolerance, so every capsule render sees the same ``branch`` value.
+    """
+    try:
+        branch = run_git(["rev-parse", "--abbrev-ref", "HEAD"], repo, check=False).strip()
+    except LedgerError:
+        return None
+    return None if branch in ("", "HEAD") else branch
+
+
+def refresh_capsule(repo: Path) -> Optional[Path]:
+    """Re-render ``.ledger/CAPSULE.md`` from the current ledger: silent.
+
+    Best-effort by contract: called from ``ledger log`` (after a pending
+    entry) and the post-commit hook (after linking entries), it must never
+    add console output and never break the command that triggered it -
+    a missing ``.ledger/``, missing git or an unwritable target simply
+    skips the refresh (returns ``None``). Deterministic rendering means
+    identical ledger state produces identical bytes.
+    """
+    try:
+        if store.discover_ledger_root(repo) is None:
+            return None  # no .ledger/ here: nothing to refresh
+        entries = store.load_entries(repo)
+        _text, path = write_capsule(entries, repo, branch=current_branch(repo))
+        return path
+    except (LedgerError, OSError):
+        return None

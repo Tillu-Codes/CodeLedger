@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codeledger"
+version = "1.0.0"
+description = "git blame for AI-written code - CodeLedger records why the AI wrote every line"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["ai", "git", "blame", "prompt", "provenance"]
+dependencies = [
+    "typer>=0.12",
+    "rich>=13",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+ledger = "codeledger.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["codeledger*"]
+
+[tool.setuptools.package-data]
+codeledger = ["web/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

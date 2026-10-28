@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeLedger</title>
+<link rel="icon" href="data:,">
+<style>
+  :root, html[data-theme="light"] {
+    --bg: #F7F5F0;
+    --surface: #FFFFFF;
+    --surface-warm: #FBFAF6;
+    --border: #E4E0D8;
+    --ink: #1F2933;
+    --muted: #6B7280;
+    --primary: #2F6F6B;
+    --primary-soft: #E8F0EE;
+    --secondary: #4B5D8A;
+    --secondary-soft: #EBEEF5;
+    --success: #4F7F5B;
+    --success-soft: #E9F1EB;
+    --warning: #B7791F;
+    --warning-soft: #F7F0E2;
+    --danger: #B4533F;
+    --danger-soft: #F6EAE6;
+    --shadow: 0 1px 2px rgba(31, 41, 51, 0.05), 0 2px 8px rgba(31, 41, 51, 0.05);
+    --code-bg: #FDFCF9;
+    --mark: #F3EFE5;
+  }
+  html[data-theme="dark"] {
+    --bg: #1B1F24;
+    --surface: #242A31;
+    --surface-warm: #20252B;
+    --border: #2E353D;
+    --ink: #E6E2DA;
+    --muted: #9BA3AE;
+    --primary: #5EA69F;
+    --primary-soft: #24343A;
+    --secondary: #8294BF;
+    --secondary-soft: #263041;
+    --success: #7FB08A;
+    --success-soft: #24332A;
+    --warning: #C99945;
+    --warning-soft: #352C1D;
+    --danger: #C97B63;
+    --danger-soft: #372822;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --code-bg: #1E2228;
+    --mark: #2A2F36;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--ink);
+    background: var(--bg);
+    transition: background 160ms ease, color 160ms ease;
+  }
+  code, pre, .mono, .codeview {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  .app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+
+  /* -- sidebar -- */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px 14px;
+    display: flex; flex-direction: column; gap: 20px;
+    transition: background 160ms ease;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 16px; letter-spacing: 0.2px; }
+  .logo-mark {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: var(--primary); color: #F5F8F7;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  .logo-sub { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .tabs { display: flex; flex-direction: column; gap: 4px; }
+  .tab {
+    appearance: none; border: 0; background: transparent; color: var(--muted);
+    text-align: left; font-size: 14px; padding: 9px 12px; border-radius: 10px;
+    cursor: pointer; transition: background 160ms ease, color 160ms ease;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tab .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); transition: background 160ms ease; }
+  .tab:hover { background: var(--surface-warm); color: var(--ink); }
+  .tab.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+  .tab.active .dot { background: var(--primary); }
+  .tab:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .sidebar-foot { margin-top: auto; font-size: 11px; color: var(--muted); padding: 0 12px; }
+
+  /* -- main -- */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 28px; border-bottom: 1px solid var(--border);
+    background: var(--surface); position: sticky; top: 0; z-index: 10;
+    transition: background 160ms ease;
+  }
+  .topbar-repo { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .topbar-repo b { font-size: 15px; font-weight: 650; }
+  .branch { font-size: 12px; color: var(--muted); }
+  .topbar-actions { display: flex; align-items: center; gap: 12px; }
+  .theme-toggle {
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+    border-radius: 10px; width: 34px; height: 34px; cursor: pointer; font-size: 15px;
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+  .theme-toggle:hover { background: var(--surface-warm); border-color: var(--primary); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  .content { padding: 26px 28px 60px; max-width: 1200px; width: 100%; }
+
+  .banner {
+    border: 1px solid var(--warning); background: var(--warning-soft); color: var(--ink);
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 18px; font-size: 13.5px;
+  }
+  .banner code { background: var(--surface); padding: 1px 6px; border-radius: 6px; }
+  .hidden { display: none !important; }
+
+  /* -- toolbar -- */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+  .toolbar input[type="search"], .toolbar select {
+    background: var(--surface); border: 1px solid var(--border); color: var(--ink);
+    border-radius: 10px; padding: 8px 12px; font-size: 13.5px; font-family: inherit;
+    transition: border-color 160ms ease, background 160ms ease; min-width: 180px;
+  }
+  .toolbar input[type="search"]:focus-visible, .toolbar select:focus-visible {
+    outline: 2px solid var(--primary); outline-offset: 1px;
+  }
+  .toolbar .spacer { flex: 1; }
+  .btn {
+    appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px;
+    color: var(--ink); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px;
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+  .btn:hover { border-color: var(--primary); }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: #F5F8F7; }
+  .btn.primary:hover { filter: brightness(1.05); }
+  .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .btn[disabled] { opacity: 0.55; cursor: default; }
+
+  /* -- chips & badges -- */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; padding: 2px 9px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--muted); background: var(--surface-warm);
+    white-space: nowrap;
+  }
+  .chip model-badge, .chip.tool-badge { margin-left: 0; }
+  .chip.b-primary { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+  .chip.b-secondary { color: var(--secondary); border-color: var(--secondary); background: var(--secondary-soft); }
+  .chip.b-success { color: var(--success); border-color: var(--success); background: var(--success-soft); }
+  .chip.b-warning { color: var(--warning); border-color: var(--warning); background: var(--warning-soft); }
+  .chip.b-danger { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+  .chip.id { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--ink); font-weight: 600; }
+  .chip.clickable { cursor: pointer; }
+  .chip.clickable:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .chip.clickable:hover { border-color: var(--primary); }
+
+  /* -- timeline cards -- */
+  .cards { display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+    transition: border-color 160ms ease;
+  }
+  .card:hover { border-color: #D4CEC1; }
+  html[data-theme="dark"] .card:hover { border-color: #3A434D; }
+  .card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .card-time { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .card-decision { font-weight: 600; font-size: 14.5px; margin: 2px 0 8px; }
+  .files-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .file-chip {
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px;
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 7px;
+    padding: 2px 8px;
+  }
+  details.prompt { margin-top: 10px; }
+  details.prompt summary {
+    cursor: pointer; color: var(--muted); font-size: 12.5px; list-style: none;
+    display: inline-flex; gap: 6px; align-items: center; user-select: none;
+  }
+  details.prompt summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+  details.prompt summary::-webkit-details-marker { display: none; }
+  details.prompt summary::before { content: "▸"; transition: transform 160ms ease; }
+  details.prompt[open] summary::before { transform: rotate(90deg); }
+  details.prompt .prompt-body {
+    margin-top: 6px; background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--ink);
+  }
+  .rejected { margin-top: 10px; border-left: 3px solid var(--danger); padding: 2px 0 2px 12px; }
+  .rejected-label { font-size: 11.5px; color: var(--danger); font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; }
+  .rejected-item { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .rejected-item b { color: var(--ink); font-weight: 600; }
+
+  /* -- blame -- */
+  .blame-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }
+  .blame-panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .code-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow); overflow: auto; max-height: calc(100vh - 250px);
+  }
+  .codeview { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .codeview td { padding: 1px 10px 1px 0; vertical-align: baseline; white-space: pre; }
+  .codeview .ln {
+    color: var(--muted); text-align: right; padding: 1px 8px 1px 10px; width: 1%;
+    min-width: 52px; user-select: none; cursor: pointer; border-right: 1px solid var(--border);
+    position: relative; transition: background 160ms ease;
+  }
+  .codeview tr:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .codeview .ln:hover { background: var(--mark); }
+  .codeview tr:hover .src { background: var(--mark); }
+  .codeview tr.selected .ln, .codeview tr.selected .src { background: var(--primary-soft); }
+  tr.ai .ln::after {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--primary); border-radius: 0 2px 2px 0;
+  }
+  tr.uncommitted .ln::after { background: var(--warning); }
+  .blame-aside {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 16px 18px; position: sticky; top: 90px;
+    max-height: calc(100vh - 130px); overflow: auto;
+  }
+  .aside-title { font-size: 13px; font-weight: 650; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .aside-close { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; padding: 2px 6px; border-radius: 6px; }
+  .aside-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .line-code {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12.5px; white-space: pre-wrap; word-break: break-word;
+    margin-bottom: 12px;
+  }
+  .commit-block { border-left: 3px solid var(--secondary); padding-left: 10px; margin-bottom: 12px; font-size: 12.5px; color: var(--muted); }
+  .commit-block b { color: var(--ink); }
+  .entry-block { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; background: var(--surface); }
+  .entry-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin: 10px 0 4px; font-weight: 600; }
+  .prose { font-size: 13px; color: var(--ink); }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+
+  /* -- capsule -- */
+  .paper {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 28px 34px; max-width: 860px;
+  }
+  .paper h1 { font-size: 19px; margin: 0 0 14px; }
+  .paper h2 { font-size: 15px; margin: 22px 0 8px; color: var(--primary); }
+  .paper ul { margin: 6px 0; padding-left: 22px; }
+  .paper li { margin: 3px 0; }
+  .paper code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; font-size: 12.5px; }
+
+  /* -- health -- */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .stat-card .name { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; }
+  .stat-card .value { font-size: 26px; font-weight: 650; margin: 4px 0 2px; }
+  .stat-card .sub { font-size: 12.5px; color: var(--muted); }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+  .chart-title { font-weight: 650; font-size: 14px; margin-bottom: 12px; }
+  .hbar-row { display: grid; grid-template-columns: 170px 1fr 40px; gap: 10px; align-items: center; margin: 6px 0; font-size: 12.5px; }
+  .hbar-track { background: var(--surface-warm); border: 1px solid var(--border); border-radius: 7px; height: 14px; overflow: hidden; }
+  .hbar-fill { height: 100%; border-radius: 7px; background: var(--secondary); transition: width 200ms ease; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: baseline; }
+
+  /* -- states -- */
+  .empty {
+    border: 1px dashed var(--border); border-radius: 12px; padding: 34px 26px;
+    text-align: center; color: var(--muted); background: var(--surface-warm);
+  }
+  .empty .cmd {
+    display: inline-block; margin-top: 10px; background: var(--code-bg);
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px;
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; color: var(--ink);
+  }
+  .skeleton {
+    border-radius: 10px; background: var(--mark); min-height: 14px; margin: 10px 0;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+  .error-box { color: var(--danger); font-size: 13px; margin: 10px 0; }
+
+  ::selection { background: var(--primary-soft); }
+
+  @media (max-width: 900px) {
+    .blame-grid { grid-template-columns: 1fr; }
+    .blame-aside { position: static; max-height: none; }
+  }
+  @media (max-width: 720px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { flex-direction: row; align-items: center; gap: 12px; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--border); }
+    .tabs { flex-direction: row; gap: 6px; margin-left: auto; }
+    .tab { padding: 6px 10px; }
+    .sidebar-foot { display: none; }
+    .content { padding: 18px 16px 40px; }
+    .topbar { padding: 12px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div>
+      <div class="logo"><span class="logo-mark">CL</span><span>CodeLedger</span></div>
+      <div class="logo-sub">why the AI wrote it</div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Screens">
+      <button class="tab active" data-view="timeline"><span class="dot"></span>Timeline</button>
+      <button class="tab" data-view="blame"><span class="dot"></span>Blame</button>
+      <button class="tab" data-view="capsule"><span class="dot"></span>Capsule</button>
+      <button class="tab" data-view="health"><span class="dot"></span>Health</button>
+    </nav>
+    <div class="sidebar-foot">v1 &middot; offline &middot; deterministic</div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-repo">
+        <b id="repo-name">CodeLedger</b>
+        <span class="branch" id="repo-branch"></span>
+      </div>
+      <div class="topbar-actions">
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark or light theme" title="Toggle theme">&#9789;</button>
+      </div>
+    </header>
+    <div class="content">
+      <div id="init-banner" class="banner hidden">
+        This repo has no <code>.ledger/</code> yet. Run <code>ledger init</code> to create it.
+      </div>
+      <div id="global-error" class="banner hidden" role="alert"></div>
+
+      <section id="view-timeline" class="view" data-view="timeline">
+        <div class="toolbar" id="tl-toolbar">
+          <input type="search" id="tl-search" placeholder="Search prompt, decision, files, id&hellip;" aria-label="Search entries" style="min-width:260px">
+          <select id="tl-model" aria-label="Filter by model"><option value="">All models</option></select>
+          <select id="tl-status" aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <option value="committed">committed</option>
+            <option value="pending">pending</option>
+          </select>
+          <div class="spacer"></div>
+          <button class="btn" id="tl-refresh">Refresh</button>
+        </div>
+        <div id="tl-list" class="cards" aria-live="polite"></div>
+      </section>
+
+      <section id="view-blame" class="view hidden" data-view="blame">
+        <div class="toolbar">
+          <select id="bl-file" aria-label="Pick a file" style="min-width:300px"></select>
+          <button class="btn primary" id="bl-load">Load blame</button>
+          <div class="spacer"></div>
+          <span class="small muted" id="bl-meta"></span>
+        </div>
+        <div class="blame-grid">
+          <div class="blame-panel" id="bl-viewer-wrap"><div class="code-card"><table class="codeview" id="bl-code"></table></div></div>
+          <aside class="blame-aside" id="bl-aside" aria-label="Line details">
+            <div class="aside-title"><span id="bl-aside-title">Line details</span><button class="aside-close" id="bl-aside-close" aria-label="Close panel">&#10005;</button></div>
+            <div id="bl-aside-body"><div class="muted small">Click a line to see which prompt and model produced it.</div></div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="view-capsule" class="view hidden" data-view="capsule">
+        <div class="toolbar">
+          <button class="btn primary" id="cap-copy">&#10697;&nbsp;Copy for any AI tool</button>
+          <span class="small muted" id="cap-note"></span>
+        </div>
+        <div class="paper" id="cap-body"></div>
+      </section>
+
+      <section id="view-health" class="view hidden" data-view="health">
+        <div class="toolbar"><div class="spacer"></div><button class="btn" id="hp-refresh">Refresh</button></div>
+        <div id="hp-cards" class="stat-grid"></div>
+        <div id="hp-charts"></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+/* CodeLedger dashboard - vanilla JS, single file, offline. */
+(function () {
+  var state = {
+    view: "timeline",
+    entries: null,
+    counts: null,
+    health: null,
+    blame: { file: null, data: null, selected: null, cache: {} },
+    files: null,
+  };
+
+  /* ---------- utilities ---------- */
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function esc(s) {
+    if (s === null || s === undefined) return "";
+    return String(s).replace(/[&<>"'`]/g, function (c) {
+      return { "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;", "`": "&#96;" }[c];
+    });
+  }
+  function fmtTime(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+  function plural(n, one, many) { return n === 1 ? one : (many || one + "s"); }
+
+  function apiFetch(path) {
+    return fetch(path).then(function (res) {
+      return res.json().catch(function () { return { error: "unreadable response" }; }).then(function (data) {
+        if (!res.ok) throw new Error((data && data.error) ? data.error : ("HTTP " + res.status));
+        return data;
+      });
+    });
+  }
+
+  function showError(msg) {
+    var box = $("#global-error");
+    box.textContent = msg || "Something went wrong.";
+    box.classList.remove("hidden");
+  }
+  function clearError() { $("#global-error").classList.add("hidden"); }
+
+  /* ---------- theme ---------- */
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("codeledger-theme", theme); } catch (e) { /* private mode */ }
+  }
+  function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem("codeledger-theme"); } catch (e) { /* ignore */ }
+    var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(saved || (prefersDark ? "dark" : "light"));
+    $("#theme-toggle").addEventListener("click", function () {
+      var next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      applyTheme(next);
+    });
+  }
+
+  /* ---------- chips ---------- */
+  function gateChip(gate) {
+    var map = { pass: ["b-success", "gate: pass"], fail: ["b-danger", "gate: fail"], bypassed: ["b-warning", "gate: bypassed"], "n/a": ["b-secondary", "gate: n/a"] };
+    var m = map[gate] || ["b-secondary", "gate: n/a"];
+    return '<span class="chip ' + m[0] + '">' + esc(m[1]) + "</span>";
+  }
+  function statusChip(status) {
+    return status === "committed"
+      ? '<span class="chip b-success">committed</span>'
+      : '<span class="chip b-warning">pending</span>';
+  }
+
+  /* ---------- navigation ---------- */
+  function showView(name) {
+    state.view = name;
+    document.querySelectorAll(".view").forEach(function (v) {
+      v.classList.toggle("hidden", v.getAttribute("data-view") !== name);
+    });
+    document.querySelectorAll(".tab").forEach(function (t) {
+      var active = t.getAttribute("data-view") === name;
+      t.classList.toggle("active", active);
+      if (active) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current");
+    });
+    try { location.hash = name; } catch (e) { /* ignore */ }
+    if (name === "timeline") loadTimeline();
+    if (name === "blame") loadBlameScreen();
+    if (name === "capsule") loadCapsule();
+    if (name === "health") loadHealth();
+  }
+
+  /* ---------- timeline ---------- */
+  function loadTimeline() {
+    if (state.entries) { renderTimeline(); return; }
+    $("#tl-list").innerHTML = '<div class="skeleton" style="width:100%"></div><div class="skeleton" style="width:80%"></div><div class="skeleton" style="width:60%"></div>';
+    apiHealth().then(function () {
+      return apiFetch("/api/entries");
+    }).then(function (data) {
+      state.entries = data.entries || [];
+      state.counts = data.counts || {};
+      fillModelFilter();
+      renderTimeline();
+      clearError();
+    }).catch(function (err) { timelineFailed(err); });
+  }
+  function timelineFailed(err) {
+    $("#tl-list").innerHTML =
+      '<div class="empty"><div>' + esc(err.message || "could not load entries") + "</div></div>";
+  }
+  function fillModelFilter() {
+    var sel = $("#tl-model");
+    var models = [];
+    (state.entries || []).forEach(function (e) {
+      if (e.model && models.indexOf(e.model) === -1) models.push(e.model);
+    });
+    models.sort();
+    var current = sel.value;
+    sel.innerHTML = '<option value="">All models</option>' +
+      models.map(function (m) { return '<option value="' + esc(m) + '">' + esc(m) + "</option>"; }).join("");
+    if (models.indexOf(current) !== -1) sel.value = current;
+  }
+  function entryMatches(e, q, model, status) {
+    if (model && e.model !== model) return false;
+    if (status && e.status !== status) return false;
+    if (!q) return true;
+    var hay = [e.id, e.prompt, e.decision, e.model, e.tool, (e.files || []).join(" ")]
+      .join(" ").toLowerCase();
+    return hay.indexOf(q.toLowerCase()) !== -1;
+  }
+  function renderTimeline() {
+    var list = $("#tl-list");
+    var entries = state.entries || [];
+    if (!entries.length) {
+      list.innerHTML =
+        '<div class="empty"><div><b>No ledger entries yet.</b></div>' +
+        '<div class="small">Record your first AI change, or build the sample repo:</div>' +
+        '<div class="cmd">ledger demo</div>' +
+        '<div class="small muted">or</div>' +
+        '<div class="cmd">ledger log --decision "my first recorded AI change"</div></div>';
+      return;
+    }
+    var q = $("#tl-search").value;
+    var model = $("#tl-model").value;
+    var status = $("#tl-status").value;
+    var visible = entries.filter(function (e) { return entryMatches(e, q, model, status); });
+    if (!visible.length) {
+      list.innerHTML = '<div class="empty">No entries match your filters.</div>';
+      return;
+    }
+    var newsFirst = visible.slice().reverse();
+    list.innerHTML = newsFirst.map(function (e) {
+      var files = (e.files || []).map(function (f) {
+        return '<span class="file-chip">' + esc(f) + "</span>";
+      }).join("");
+      var rejected = (e.rejected_alternatives || []).map(function (alt) {
+        return '<div class="rejected-item"><b>' + esc(alt && alt.approach) + "</b> - " + esc(alt && alt.reason) + "</div>";
+      }).join("");
+      var redactions = e.redactions ? '<span class="chip b-secondary">&#128274; ' + e.redactions + " redacted</span>" : "";
+      var promptHtml = e.prompt
+        ? '<details class="prompt"><summary>show prompt</summary><div class="prompt-body">' + esc(e.prompt) + "</div></details>"
+        : "";
+      return (
+        '<article class="card">' +
+        '<div class="card-head">' +
+        '<span class="chip id" title="blame any listed file line to jump here">' + esc(e.id) + "</span>" +
+        (e.model ? '<span class="chip b-secondary">' + esc(e.model) + "</span>" : "") +
+        (e.tool ? '<span class="chip b-primary">' + esc(e.tool) + "</span>" : "") +
+        statusChip(e.status) +
+        gateChip(e.gate_result) +
+        (e.tests_included ? '<span class="chip b-success">&#10003; tests</span>' : '<span class="chip">no tests</span>') +
+        (e.status === "committed" && e.commit ? '<span class="chip mono">' + esc(String(e.commit).slice(0, 7)) + "</span>" : "") +
+        '<span class="card-time">' + esc(fmtTime(e.timestamp)) + "</span>" +
+        "</div>" +
+        (e.decision ? '<div class="card-decision">' + esc(e.decision) + "</div>" : "") +
+        promptHtml +
+        (files ? '<div class="files-row" style="margin-top:10px">' + files + "</div>" : "") +
+        (rejected ? '<div class="rejected"><div class="rejected-label">Don\'t do this again</div>' + rejected + "</div>" : "") +
+        (redactions ? '<div style="margin-top:8px">' + redactions + "</div>" : "") +
+        "</article>"
+      );
+    }).join("");
+  }
+
+  /* ---------- blame ---------- */
+  function loadBlameScreen() {
+    apiHealth().then(function () {
+      if (state.files) { populateFiles(); return; }
+      return apiFetch("/api/files").then(function (data) {
+        state.files = data.files || [];
+        populateFiles();
+        clearError();
+      });
+    }).catch(function (err) {
+      $("#bl-viewer-wrap").innerHTML = '<div class="empty"><div>' + esc(err.message) + "</div></div>";
+    });
+  }
+  function populateFiles() {
+    var sel = $("#bl-file");
+    var files = state.files || [];
+    if (!files.length) {
+      sel.innerHTML = '<option value="">(no tracked files yet)</option>';
+      return;
+    }
+    sel.innerHTML = files.map(function (f) { return '<option value="' + esc(f) + '">' + esc(f) + "</option>"; }).join("");
+    var preferred = files.filter(function (f) { return /\.(py|js|ts|jsx|tsx|md)$/.test(f); });
+    var pick = preferred.length ? preferred[0] : files[0];
+    blPickBest(pick, files);
+  }
+  function blPickBest(preferred, files) {
+    /* Prefer a file that appears in entries' files lists. */
+    var entryFiles = {};
+    (state.entries || []).forEach(function (e) { (e.files || []).forEach(function (f) { entryFiles[f] = true; }); });
+    var aiFile = files.filter(function (f) { return entryFiles[f]; });
+    if (aiFile.length) { sel.value = aiFile[0]; }
+    else if (files.indexOf(preferred) !== -1) { sel.value = preferred; }
+    loadBlame(sel.value);
+  }
+  function loadBlame(file) {
+    var table = $("#bl-code");
+    $("#bl-meta").textContent = "loading\u2026";
+    table.innerHTML = '<div class="skeleton" style="width:90%"></div>';
+    apiFetch("/api/blame?file=" + encodeURIComponent(file)).then(function (data) {
+      state.blame.file = file;
+      state.blame.data = data;
+      state.blame.cache = {};
+      renderCode(data);
+      $("#bl-meta").textContent = (data.lines || []).length + " lines";
+      clearError();
+    }).catch(function (err) {
+      $("#bl-meta").textContent = "";
+      table.innerHTML = '<div class="empty" style="display:block"><div>' + esc(err.message) + "</div></div>";
+    });
+  }
+  function renderCode(data) {
+    var table = $("#bl-code");
+    var lines = data.lines || [];
+    var maxShow = 2500;
+    if (lines.length > maxShow) {
+      table.innerHTML = '<div class="small muted" style="display:block;padding:12px">File too large; showing first ' + maxShow + " lines.</div>";
+      lines = lines.slice(0, maxShow);
+    }
+    var frag = [];
+    lines.forEach(function (l) {
+      var cls = [];
+      if (l.ai) cls.push("ai");
+      if (l.uncommitted) cls.push("uncommitted");
+      frag.push(
+        '<tr class="' + cls.join(" ") + '" data-line="' + l.no + '" tabindex="0" role="button" aria-label="Show line ' + l.no + ' details">' +
+        '<td class="ln" data-line="' + l.no + '">' + l.no + "</td>" +
+        '<td class="src"><code>' + esc(l.text) + "</code></td></tr>"
+      );
+    });
+    table.innerHTML = frag.join("");
+  }
+  function selectLine(lineNo) {
+    var data = state.blame.data;
+    if (!data) return;
+    document.querySelectorAll("#bl-code tr.selected").forEach(function (tr) { tr.classList.remove("selected"); });
+    var tr = document.querySelector('#bl-code tr[data-line="' + lineNo + '"]');
+    if (tr) { tr.classList.add("selected"); tr.scrollIntoView({ block: "nearest" }); }
+    var body = $("#bl-aside-body");
+    var cached = state.blame.cache[lineNo];
+    if (cached) { renderAside(lineNo, cached); return; }
+    body.innerHTML = '<div class="skeleton" style="width:80%"></div><div class="skeleton" style="width:60%"></div>';
+    apiFetch("/api/blame?file=" + encodeURIComponent(state.blame.file) + "&line=" + lineNo)
+      .then(function (reveal) {
+        state.blame.cache[lineNo] = reveal;
+        renderAside(lineNo, reveal);
+      })
+      .catch(function (err) {
+        body.innerHTML = '<div class="error-box">' + esc(err.message) + "</div>";
+      });
+  }
+  function renderAside(lineNo, reveal) {
+    var body = $("#bl-aside-body");
+    $("#bl-aside-title").textContent = reveal.file + ":" + reveal.line;
+    var html = '<div class="line-code mono">' + esc(reveal.text) + "</div>";
+    if (reveal.uncommitted) {
+      html += '<div class="entry-block"><div class="lbl">not committed yet</div>' +
+        '<div class="prose muted">This line has no commit (and no prompt) behind it yet. Commit it and run <code>ledger log</code>.</div></div>';
+    } else if (reveal.commit) {
+      html += '<div class="commit-block"><b>' + esc(reveal.commit.short) + "</b> " + esc(reveal.commit.author) +
+        '<br><span class="small">' + esc(fmtTime(reveal.commit.date)) + "</span></div>";
+    }
+    if (reveal.is_ai && reveal.entries && reveal.entries.length) {
+      reveal.entries.forEach(function (e) {
+        html += '<div class="entry-block">' +
+          '<div class="entry-head">' +
+          '<span class="chip id">' + esc(e.id) + "</span>" +
+          (e.model ? '<span class="chip b-secondary">' + esc(e.model) + "</span>" : "") +
+          (e.tool ? '<span class="chip b-primary">' + esc(e.tool) + "</span>" : "") +
+          statusChip(e.status) + gateChip(e.gate_result) +
+          (e.tests_included ? '<span class="chip b-success">&#10003; tests</span>' : '<span class="chip">no tests</span>') +
+          "</div>" +
+          '<div class="lbl">prompt</div><div class="prose">' + esc(e.prompt) + "</div>" +
+          '<div class="lbl">decision</div><div class="prose">' + esc(e.decision || "-") + "</div>" +
+          (e.files && e.files.length ? '<div class="lbl">files</div><div class="files-row">' +
+            e.files.map(function (f) { return '<span class="file-chip">' + esc(f) + "</span>"; }).join("") + "</div>" : "") +
+          "</div>";
+      });
+    } else if (!reveal.uncommitted) {
+      html += '<div class="entry-block"><div class="lbl">no AI record</div>' +
+        '<div class="prose"><b>No AI record: human-written or unlogged commit.</b></div>' +
+        '<div class="small muted">Run <code>ledger log</code> right after the AI change to capture it.</div></div>';
+    }
+    body.innerHTML = html;
+  }
+
+  /* ---------- capsule ---------- */
+  function loadCapsule() {
+    var body = $("#cap-body");
+    $("#cap-note").textContent = "loading\u2026";
+    body.innerHTML = '<div class="skeleton" style="width:70%"></div><div class="skeleton" style="width:50%"></div><div class="skeleton" style="width:60%"></div>';
+    apiFetch("/api/capsule").then(function (data) {
+      renderCapsule(data);
+      clearError();
+    }).catch(function (err) {
+      $("#cap-note").textContent = "";
+      body.innerHTML = '<div class="empty"><div>' + esc(err.message) + "</div></div>";
+    });
+  }
+  function mdLite(text) {
+    var escaped = esc(text);
+    return escaped
+      .replace(/^### (.*)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.*)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.*)$/gm, "<h1>$1</h1>")
+      .replace(/^\s*[-*] (.*)$/gm, "<li>$1</li>")
+      .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+      .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+      .replace(/(<li>[^<]*(?:<(?:\/?(?:b|code)>)[^<]*)*<\/li>)(?!<li>)/g, "") /* keep simple: lists as-is */
+      .replace(/^(?!<[hul])(.+)$/gm, "<p>$1</p>")
+      .replace(/(<p>\n?)<li>/g, "<ul><li>")
+      .replace(/<\/li><p>/g, "</li><li>");
+  }
+  function renderCapsule(data) {
+    var body = $("#cap-body");
+    state.capsuleText = data.text || "";
+    body.innerHTML = mdLite(state.capsuleText).replace(/<\/h2><p>\s*-/g, "</h2><ul><li>");
+    $("#cap-note").textContent = data.missing
+      ? "preview - not written yet. Run `ledger capsule` to save it."
+      : "rendered from .ledger/CAPSULE.md";
+  }
+
+  /* ---------- health ---------- */
+  function loadHealth() {
+    var cards = $("#hp-cards");
+    cards.innerHTML = '<div class="skeleton" style="height:100px"></div><div class="skeleton" style="height:100px"></div><div class="skeleton" style="height:100px"></div>';
+    $("#hp-charts").innerHTML = "";
+    apiHealth().then(function (h) {
+      return apiFetch("/api/entries").then(function (e) {
+        renderHealth(h, e);
+        clearError();
+      });
+    }).catch(function (err) {
+      $("#hp-cards").innerHTML = '<div class="empty" style="grid-column:1/-1"><div>' + esc(err.message) + "</div></div>";
+    });
+  }
+  function renderHealth(h, entriesData) {
+    var counts = h.counts || {};
+    var total = counts.total || 0;
+    var committed = counts.committed || 0;
+    var pending = counts.pending || 0;
+    var tests = counts.tests_included || 0;
+    var red = h.redaction_placeholders || 0;
+    $("#hp-cards").innerHTML =
+      statCard("Entries", total, committed + " committed / " + pending + " pending") +
+      statCard("With tests", total ? Math.round(100 * tests / total) + "%" : "\u2013", tests + " of " + total + " entries") +
+      statCard("Redactions", red, "placeholders kept in redact_map.json");
+    $("#hp-charts").innerHTML =
+      gateChart(counts) +
+      modelChart(h.models || {}, total);
+  }
+  function statCard(name, value, sub) {
+    return '<div class="stat-card"><div class="name">' + esc(name) + '</div><div class="value">' + esc(value) + '</div><div class="sub">' + esc(sub) + "</div></div>";
+  }
+  function gateChart(counts) {
+    var pass = counts.gate_pass || 0, fail = counts.gate_fail || 0, bypassed = counts.gate_bypassed || 0, na = counts.gate_na || 0;
+    var total = Math.max(1, pass + fail + bypassed + na);
+    var w = 760;
+    function seg(n, color) { return n ? '<rect x="0" y="0" width="' + Math.max(0, (n / total) * w) + '" height="26" rx="7" fill="' + color + '"></rect>' : ""; }
+    var parts = [];
+    function shift(n) { return n / total * w; }
+    var svg = '<svg viewBox="0 0 ' + w + ' 26" width="100%" height="26" role="img" aria-label="Gate outcomes">';
+    var x = 0;
+    [[pass, "var(--success)"], [fail, "var(--danger)"], [bypassed, "var(--warning)"], [na, "var(--border)"]].forEach(function (pair) {
+      var n = pair[0], color = pair[1];
+      if (n > 0) {
+        var width = (n / total) * w;
+        svg += '<rect x="' + x + '" y="0" width="' + width + '" height="26" rx="7" fill="' + color + '"></rect>';
+        x += width;
+      }
+    });
+    svg += "</svg>";
+    return (
+      '<div class="chart-card"><div class="chart-title">Gate outcomes</div>' + svg +
+      '<div class="legend"><span><i style="background:var(--success)"></i>pass ' + pass + "</span>" +
+      '<span><i style="background:var(--danger)"></i>fail ' + fail + "</span>" +
+      '<span><i style="background:var(--warning)"></i>bypassed ' + bypassed + "</span>" +
+      '<span><i style="background:var(--border)"></i>n/a ' + na + "</span></div></div>"
+    );
+  }
+  function modelChart(models, total) {
+    var names = Object.keys(models).sort(function (a, b) { return models[b] - models[a]; });
+    var max = 1;
+    names.forEach(function (n) { max = Math.max(max, models[n]); });
+    var rows = names.length ? names.map(function (n) {
+      var pct = Math.round(100 * models[n] / max);
+      return '<div class="hbar-row"><span class="mono small">' + esc(n) + '</span><div class="hbar-track"><div class="hbar-fill" style="width:' + pct + '%;background:var(--secondary)"></div></div><span class="small muted">' + models[n] + "</span></div>";
+    }).join("") : '<div class="muted small">No entries yet - run <code>ledger demo</code> or <code>ledger log</code>.</div>';
+    return '<div class="chart-card"><div class="chart-title">Entries per model</div>' + rows + "</div>";
+  }
+
+  /* ---------- health/entries shared fetch ---------- */
+  function apiHealth() {
+    return apiFetch("/api/health").then(function (h) {
+      state.health = h;
+      $("#repo-name").textContent = h.repo || "CodeLedger";
+      $("#repo-branch").textContent = h.branch ? "· " + h.branch : "";
+      $("#init-banner").classList.toggle("hidden", h.initialized !== false && (h.counts ? h.counts.total >= 0 : true));
+      return h;
+    });
+  }
+
+  /* ---------- wiring ---------- */
+  function initTabs() {
+    document.querySelectorAll(".tab").forEach(function (tabBtn) {
+      tabBtn.addEventListener("click", function () { showView(tabBtn.getAttribute("data-view")); });
+    });
+    window.addEventListener("hashchange", function () {
+      var v = (location.hash || "").replace("#", "");
+      if (v && v !== state.view) showView(v);
+    });
+  }
+  function initTimelineControls() {
+    ["#tl-search", "#tl-model", "#tl-status"].forEach(function (sel) {
+      $(sel).addEventListener("input", renderTimeline);
+    });
+    $("#tl-refresh").addEventListener("click", function () {
+      state.entries = null;
+      loadTimeline();
+    });
+  }
+  function initBlameControls() {
+    $("#bl-load").addEventListener("click", function () {
+      var f = $("#bl-file").value;
+      if (f) {
+        state.blame.cache = {};
+        loadBlame(f);
+      }
+    });
+    $("#bl-code").addEventListener("click", function (ev) {
+      var tr = ev.target.closest("tr[data-line]");
+      if (tr) selectLine(parseInt(tr.getAttribute("data-line"), 10));
+    });
+    $("#bl-code").addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") {
+        var tr = ev.target.closest("tr[data-line]");
+        if (tr) { ev.preventDefault(); selectLine(parseInt(tr.getAttribute("data-line"), 10)); }
+      }
+    });
+    $("#bl-aside-close").addEventListener("click", function () {
+      $("#bl-aside-body").innerHTML = '<div class="muted small">Click a line to see which prompt and model produced it.</div>';
+      $("#bl-aside-title").textContent = "Line details";
+      document.querySelectorAll("#bl-code tr.selected").forEach(function (tr) { tr.classList.remove("selected"); });
+    });
+  }
+  function initCapsuleControls() {
+    $("#cap-copy").addEventListener("click", function () {
+      var text = state.capsuleText || "";
+      var done = function () {
+        var btn = $("#cap-copy");
+        var original = btn.innerHTML;
+        btn.innerHTML = "&#10003;&nbsp;Copied";
+        window.setTimeout(function () { btn.innerHTML = original; }, 1600);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function () { copyFallback(text, done); });
+      } else {
+        copyFallback(text, done);
+      }
+    });
+  }
+  function copyFallback(text, done) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { /* ignore */ }
+    document.body.removeChild(ta);
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    initTheme();
+    initTabs();
+    initTimelineControls();
+    initBlameControls();
+    initCapsuleControls();
+    $("#hp-refresh").addEventListener("click", function () { state.entries = null; loadHealth(); });
+    var start = (location.hash || "#timeline").replace("#", "");
+    if (["timeline", "blame", "capsule", "health"].indexOf(start) === -1) start = "timeline";
+    showView(start);
+  });
+})();
+</script>
+</body>
+</html>

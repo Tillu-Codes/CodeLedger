@@ -1,0 +1,249 @@
+# CodeLedger
+
+> "git blame tells you who wrote a line. CodeLedger tells you *why* the AI wrote it."
+
+CodeLedger records the **prompt, model and tool behind every AI change** in
+plain files inside `.ledger/`, so the reasoning behind AI-written code
+survives the chat window — and a new assistant session can inherit it.
+
+---
+
+## The problem
+
+AI assistants write code fast and keep reasoning slow: the *why* — the
+prompt that caused a change, the approaches the assistant considered and
+rejected, whether tests shipped with it — lives in a chat window that is
+gone by next Tuesday. Three months later,
+
+- nobody can tell which parts of the codebase came from which model;
+- a bug review cannot see the prompt that produced the buggy line;
+- switching AI tools throws away everything the previous tool "knew";
+- nothing enforces that AI-generated source ships with tests.
+
+CodeLedger attacks this with **receipts, enforcement and a restore
+point** — all offline, all deterministic, all stored as plain text you can
+`cat`, diff and code-review.
+
+## What you get
+
+| Piece | Command | What it does |
+| --- | --- | --- |
+| **Blame (hero)** | `ledger blame cart.py:65` | Panel for one line: commit, entry ID, model, tool, gate result, the decision, the prompt, rejected alternatives. |
+| **Log** | `ledger log -p "..." -m ... -t ...` | Records an AI change as a pending entry; prints its ID (`L-0001`). |
+| **Gate** | `ledger gate` | Blocks AI source changes committed without tests, and prints a ready-to-paste prompt for the assistant naming the files that need coverage. |
+| **Capsule** | `ledger capsule` | `CAPSULE.md`: newest decisions, "Don't do this again" list, recently changed files, open items. Paste it into any AI tool to restore context. Auto-refreshed: re-rendered by `ledger log` after each pending entry and by the post-commit hook after linking. |
+| **Redact** | `ledger redact secret.txt` / `ledger restore` | Replaces secrets with numbered placeholders and keeps a reversible map (which is itself kept out of git). |
+| **Status** | `ledger status` | Totals, pending entries and gate statistics. |
+| **UI** | `ledger ui` | Local dashboard (Timeline / Blame / Capsule / Health) on `http://127.0.0.1:8765`, standard library only. |
+| **Hooks** | installed by `ledger init` | `pre-commit` runs the gate; `prepare-commit-msg` stamps a `Ledger-ID: L-0001, ...` trailer; `post-commit` links entries to their commit. |
+| **Demo** | `ledger demo` | Builds `./ledger-demo/`, a scripted sample repo with a planted double-discount bug, 6 entries, a blocked-then-fixed gate story and a `DEMO_SCRIPT.md`. |
+
+`ledger init` bootstraps everything: `.ledger/`, the three git hooks
+(idempotent, with `codeledger:` markers — safe to re-run, existing hooks
+are not overwritten), a `.gitignore` entry for `.ledger/redact_map.json`,
+and a **marked `AGENTS.md` section** that tells every AI assistant to read
+the capsule first and log every change.
+
+## Quickstart
+
+Requires Python 3.10+ and git. Runtime dependencies: `typer` and `rich`
+only; the web UI uses the standard library (`http.server`).
+
+```console
+pip install .
+
+# in your project repo:
+ledger init          # .ledger/, hooks, .gitignore, AGENTS.md section
+ledger ui --no-browser --port 8765    # optional: peek at the dashboard
+```
+
+`ledger init` is idempotent: it installs hook code only if its
+`codeledger:` markers are absent, never overwrites custom hooks, and can
+be re-run any time (also after cloning — git hooks are not versioned, so a
+fresh clone needs one `ledger init` to become hooked again).
+
+**A day in the life:**
+
+```console
+$ ledger log -p "Add a holiday discount: apply_discount(pct) should reduce the grand total" \
+    -m claude-sonnet-4.5 -t opencode --files cart.py \
+    -d "Store the discount on the cart and apply it inside get_total \
+(bug: applied twice)" \
+    -r "Return (subtotal, discount) and let the UI compute totals::Pushes \
+arithmetic to every caller; totals become inconsistent across views"
+L-0003
+
+$ git add cart.py tests/test_cart.py && git commit -m "Introduce holiday discount"
+# pre-commit hook runs `ledger gate`: this commit carries tests -> pass.
+#   Without tests the commit is BLOCKED and the gate prints a prompt the
+#   AI can replay to add coverage. Docs/config/lockfiles are never blocked;
+#   LEDGER_SKIP_GATE=1 bypasses - and is recorded as "bypassed".
+# prepare-commit-msg stamps the trailer: Ledger-ID: L-0003
+
+$ ledger blame cart.py:65 --json      # the provenance story, machine-readable
+$ ledger capsule                      # .ledger/CAPSULE.md - paste into any AI tool
+```
+
+The gate's failure output names the exact files and prints a prompt an
+assistant can replay to fix itself. Docs, config files and lockfiles are
+never blocked (`LEDGER_SKIP_GATE=1` bypasses the gate — and is recorded as
+`bypassed` in the ledger).
+
+**Run the demo:**
+
+```console
+$ ledger demo                    # creates ./ledger-demo/ (no git operations outside it)
+$ ledger demo --force            # overwrite an existing demo directory
+$ cd ledger-demo && ledger blame cart.py:65
+```
+
+Commit six planted entries across three models/tools, reveal the bug's
+provenance with one command, replay the gate from failure to fix, and read
+`./ledger-demo/DEMO_SCRIPT.md`, a ~3 minute presenter script copied into
+this repo's root as well.
+
+## Data model
+
+`.ledger/decisions.jsonl` — one JSON object per line, append-friendly; the
+reader tolerates blank and corrupt lines (they are skipped, not fatal):
+
+```json
+{
+  "id": "L-0001",
+  "timestamp": "2026-10-26T09:12:00+00:00",
+  "prompt": "Add a holiday discount: apply_discount(pct) should reduce the grand total",
+  "model": "claude-sonnet-4.5",
+  "tool": "opencode",
+  "files": ["cart.py", "tests/test_cart.py"],
+  "decision": "Store the discount on the cart and apply it inside get_total (bug: applied twice)",
+  "rejected_alternatives": [
+    {"approach": "Return (subtotal, discount) and let the UI compute totals",
+     "reason": "Pushes arithmetic to every caller; totals become inconsistent across views"}
+  ],
+  "status": "committed",
+  "commit": "9f0d01a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7",
+  "tests_included": true,
+  "gate_result": "pass",
+  "redactions": 0
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `id` | `L-NNNN`, assigned by `ledger log`. Stable, never re-used. |
+| `status` | `pending` until linked to a commit by the hook, then `committed`. |
+| `gate_result` | `pass`, `fail`, `bypassed`, or `n/a` (docs-only / no AI source). |
+| `tests_included` | Whether a test file was staged/committed with the change. |
+| `rejected_alternatives` | `approach::reason` pairs the assistant discarded. |
+
+## Architecture
+
+One small Python package (`codeledger/`), no database, no network calls,
+no LLM calls:
+
+| Module | Responsibility |
+| --- | --- |
+| `store.py` | JSONL ledger: atomic writes, max-id recovery, tolerant parsing. |
+| `gitutil.py` | Everything shell-out side: `git` plumbing, changed-file detection, blame porcelain. |
+| `gate.py` | Deciding which staged files are "AI source needing tests" versus docs/config/lockfiles. |
+| `hooks.py` | Installing hooks idempotently; trailer stamping (`Ledger-ID:`); post-commit linking; pre-commit gate. |
+| `blame.py` | The hero: line ↔ commit ↔ ledger-entry joins, with plain-language rules for human-written lines. |
+| `capsule.py` | Deterministic, line-capped (hard cap below 150 lines) markdown capsule rendering — pure function of the ledger. |
+| `redact.py` | Pattern library over stdin or a file; reversible map kept in `.ledger/redact_map.json` (`.gitignore`d). |
+| `webui.py` + `web/index.html` | Local-only dashboard. Binds `127.0.0.1` only, POST → `405`, directory traversal attempts produce `400`/`403` — never served from `.git` or `.ledger/redact_map.json`. |
+| `cli.py` (`ledger`, `python -m codeledger`) | Typer CLI; every failure becomes an exit code plus a human explanation. |
+
+```console
+.ledger/
+  decisions.jsonl   # append per line; human-readable, git-diffable
+  CAPSULE.md        # one-screen context snapshot for AI tools
+  redact_map.json   # redaction reverse map; kept out of git by `ledger init`
+```
+
+Committed to git with your code: the AI's "why" is reviewable as data.
+
+## How it compares
+
+- **`git blame`** answers *who wrote this line and when* — for AI code that
+  answer is nearly useless (it's a model name in a commit message at best).
+  CodeLedger answers *why this line exists* — it joins the blamed commit to
+  a ledger entry containing the actual prompt, workflow tool, decision and
+  rejected alternatives.
+- **Commit messages / PR templates / Conventional Commits** capture a
+  one-line summary written *after* the change, by a human, optionally.
+  CodeLedger captures the *prompt* and *trade-offs* at the moment of
+  authorship, automatically via hooks, and links both directions
+  (line → commit → entry).
+- **Design docs / ADRs** are curated by hand and drift. CodeLedger is
+  append-per-change: every recorded decision is tied to the exact commit
+  and line it produced, so it can't drift.
+- **AI-tool memory products** (session memory inside one vendor's chat) are
+  per-tool, per-account, and often cloud-hosted. CodeLedger is
+  tool-agnostic: every assistant (human or model) reads the same
+  `CAPSULE.md` and appends via the same `ledger log` — plain files, no
+  database, no cloud. And the capsule is re-rendered automatically at
+  `ledger log` time and after commit linking, so it never goes stale
+  between sessions.
+
+## Security & privacy posture
+
+- Everything stays in your repo: JSONL + markdown. No accounts, no sync.
+- `ledger redact` rewrites secrets as `<FAMILY_n>` placeholders (e.g.
+  `<SECRET_1>`, `<AWS_KEY_4>`) before anything gets pasted into prompts or
+  files; the reverse map is `.gitignore`d by `ledger init`, and
+  `ledger restore` swaps them back.
+- The UI binds to `127.0.0.1` only, serves one HTML file with no CDN or
+  external assets, refuses POSTs, and shields `.git` and the redaction map
+  from path traversal.
+
+## Limitations (honesty section)
+
+- **The ledger is only as good as the logging discipline.** `ledger log`
+  is a plain command (this was intentional for the demo, hackathon
+  packaging, and shell pipelines). An assistant's use of it is prompted by
+  the `AGENTS.md` section `ledger init` installs — a contract, not a
+  sandbox. A malicious or misbehaving assistant can omit it or lie; a
+  human can spot-check any submitted entry with `ledger blame` and
+  `ledger status` because entries carry a forced decision and model/tool.
+- **Commit linking relies on hooks.** Git hooks live in `.git/hooks` and
+  are not versioned, so a fresh clone runs unhooked until `ledger init` is
+  re-run; tools that bypass hooks, merge/quarantine workflows, or commits
+  made through hosted web UIs also skip the trailer/linking. Unlinked
+  entries show up as honest "open items" (pending) in `ledger status`,
+  `ledger capsule` and the UI, and can be linked afterwards by hand
+  (editing `decisions.jsonl` — the format is plain JSON, one object per
+  line) rather than failing.
+- **Files recorded are what was declared or inferred.** `ledger log`'s
+  default `--files` comes from the repo's change detection, but at commit
+  time the gate classifies *staged* paths, so a file neither logged nor
+  staged is invisible. The gate's test-coverage check is name-based
+  heuristics (`tests/` style directories, `test_*`, `*_test.py`,
+  `*.spec.js`/`.ts`/`.jsx`/`.tsx`, `conftest.py`) — good, not
+  oracle-perfect for exotic conventions.
+- **Capsule is a render, not a parser.** It stacks the newest 15
+  decisions; very old history remains in `decisions.jsonl` and is
+  summarized by counts. It is not stale, though: `ledger log` re-renders it
+  after every pending entry and the post-commit hook re-renders it after
+  linking, so the next session always reads current state.
+- **Tested on CPython 3.12 / git 2.55 / Windows.** Other platforms should
+  work (pure Python, no compile steps) but were not verified here.
+
+## Development
+
+```console
+pip install -e ".[dev]"
+python -m pytest                 # 188 tests: store, gate, hooks, blame, capsule,
+                                 # ui (live server), redact round-trip, demo,
+                                 # end-to-end subprocess journey
+ledger demo --force              # self-verifying demo repo build
+```
+
+The test suite builds real git repositories in temporary directories and
+exercises the same paths a user would hit: init idempotency, hook
+trailer/links through a *real* `git commit`, gate fail/pass/bypass,
+UI endpoints over live HTTP (traversal and redact-map protection
+included) and the scripted demo end-to-end.
+
+## License
+
+MIT (see `pyproject.toml`).
