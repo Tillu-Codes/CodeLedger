@@ -52,14 +52,14 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: sans-serif;
     font-size: 14.5px;
     line-height: 1.55;
     color: var(--ink);
     background: var(--bg);
     transition: background 160ms ease, color 160ms ease;
   }
-  code, pre, .mono, .codeview {
+  code, pre, .mono, .codeview, .file-chip, .chip.id, .logo-mark {
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   }
 
@@ -79,7 +79,6 @@
     background: var(--primary); color: #F5F8F7;
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
-    font-family: ui-monospace, Menlo, Consolas, monospace;
   }
   .logo-sub { font-size: 11px; color: var(--muted); font-weight: 400; }
   .tabs { display: flex; flex-direction: column; gap: 4px; }
@@ -108,6 +107,18 @@
   .topbar-repo b { font-size: 15px; font-weight: 650; }
   .branch { font-size: 12px; color: var(--muted); }
   .topbar-actions { display: flex; align-items: center; gap: 12px; }
+  .live {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px;
+    color: var(--muted); border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 12px; cursor: pointer; user-select: none; background: var(--surface);
+    transition: border-color 160ms ease, color 160ms ease;
+  }
+  .live:hover { border-color: var(--primary); color: var(--ink); }
+  .live:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .live .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: blink 2s ease-in-out infinite; }
+  .live.paused .live-dot { background: var(--muted); animation: none; }
+  .live.off .live-dot { background: var(--danger); animation: none; }
+  @keyframes blink { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
   .theme-toggle {
     border: 1px solid var(--border); background: var(--surface); color: var(--ink);
     border-radius: 10px; width: 34px; height: 34px; cursor: pointer; font-size: 15px;
@@ -155,16 +166,18 @@
     border: 1px solid var(--border); color: var(--muted); background: var(--surface-warm);
     white-space: nowrap;
   }
-  .chip model-badge, .chip.tool-badge { margin-left: 0; }
   .chip.b-primary { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
   .chip.b-secondary { color: var(--secondary); border-color: var(--secondary); background: var(--secondary-soft); }
   .chip.b-success { color: var(--success); border-color: var(--success); background: var(--success-soft); }
   .chip.b-warning { color: var(--warning); border-color: var(--warning); background: var(--warning-soft); }
   .chip.b-danger { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
-  .chip.id { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--ink); font-weight: 600; }
+  .chip.id { color: var(--ink); font-weight: 600; }
   .chip.clickable { cursor: pointer; }
   .chip.clickable:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
   .chip.clickable:hover { border-color: var(--primary); }
+
+  /* -- count strip -- */
+  .count-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 
   /* -- timeline cards -- */
   .cards { display: flex; flex-direction: column; gap: 14px; }
@@ -180,10 +193,13 @@
   .card-decision { font-weight: 600; font-size: 14.5px; margin: 2px 0 8px; }
   .files-row { display: flex; flex-wrap: wrap; gap: 6px; }
   .file-chip {
-    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px;
+    font-size: 12px;
     background: var(--code-bg); border: 1px solid var(--border); border-radius: 7px;
     padding: 2px 8px;
   }
+  .file-chip.clickable { cursor: pointer; transition: border-color 140ms ease, background 140ms ease; }
+  .file-chip.clickable:hover { border-color: var(--primary); background: var(--primary-soft); }
+  .file-chip.clickable:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
   details.prompt { margin-top: 10px; }
   details.prompt summary {
     cursor: pointer; color: var(--muted); font-size: 12.5px; list-style: none;
@@ -191,7 +207,7 @@
   }
   details.prompt summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
   details.prompt summary::-webkit-details-marker { display: none; }
-  details.prompt summary::before { content: "▸"; transition: transform 160ms ease; }
+  details.prompt summary::before { content: "\25B8"; transition: transform 160ms ease; }
   details.prompt[open] summary::before { transform: rotate(90deg); }
   details.prompt .prompt-body {
     margin-top: 6px; background: var(--code-bg); border: 1px solid var(--border);
@@ -220,6 +236,7 @@
   .codeview .ln:hover { background: var(--mark); }
   .codeview tr:hover .src { background: var(--mark); }
   .codeview tr.selected .ln, .codeview tr.selected .src { background: var(--primary-soft); }
+  .codeview .msg-cell { padding: 16px; white-space: normal; width: 100%; }
   tr.ai .ln::after {
     content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
     background: var(--primary); border-radius: 0 2px 2px 0;
@@ -254,8 +271,10 @@
   }
   .paper h1 { font-size: 19px; margin: 0 0 14px; }
   .paper h2 { font-size: 15px; margin: 22px 0 8px; color: var(--primary); }
+  .paper h3 { font-size: 14px; margin: 16px 0 6px; color: var(--ink); }
   .paper ul { margin: 6px 0; padding-left: 22px; }
   .paper li { margin: 3px 0; }
+  .paper p { margin: 8px 0; }
   .paper code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; font-size: 12.5px; }
 
   /* -- health -- */
@@ -295,6 +314,16 @@
   @keyframes pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
   .error-box { color: var(--danger); font-size: 13px; margin: 10px 0; }
 
+  /* -- toasts -- */
+  .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 60; }
+  .toast {
+    background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--primary);
+    box-shadow: var(--shadow); border-radius: 10px; padding: 10px 14px; font-size: 13px;
+    max-width: 340px; animation: toast-in 200ms ease;
+  }
+  .toast.out { opacity: 0; transition: opacity 300ms ease; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
   ::selection { background: var(--primary-soft); }
 
   @media (max-width: 900px) {
@@ -325,7 +354,7 @@
       <button class="tab" data-view="capsule"><span class="dot"></span>Capsule</button>
       <button class="tab" data-view="health"><span class="dot"></span>Health</button>
     </nav>
-    <div class="sidebar-foot">v1 &middot; offline &middot; deterministic</div>
+    <div class="sidebar-foot">v1 &middot; offline &middot; live-updating</div>
   </aside>
   <main class="main">
     <header class="topbar">
@@ -334,6 +363,9 @@
         <span class="branch" id="repo-branch"></span>
       </div>
       <div class="topbar-actions">
+        <button id="live-toggle" class="live" title="Auto-refreshes every 4 seconds. Click to pause or resume.">
+          <span class="live-dot"></span><span id="live-label">Live</span>
+        </button>
         <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark or light theme" title="Toggle theme">&#9789;</button>
       </div>
     </header>
@@ -355,6 +387,7 @@
           <div class="spacer"></div>
           <button class="btn" id="tl-refresh">Refresh</button>
         </div>
+        <div id="tl-counts" class="count-strip"></div>
         <div id="tl-list" class="cards" aria-live="polite"></div>
       </section>
 
@@ -390,27 +423,30 @@
     </div>
   </main>
 </div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
 
 <script>
 "use strict";
-/* CodeLedger dashboard - vanilla JS, single file, offline. */
+/* CodeLedger dashboard - vanilla JS, single file, offline, live-updating. */
 (function () {
   var state = {
     view: "timeline",
     entries: null,
     counts: null,
     health: null,
+    capsuleText: "",
+    knownIds: null,
+    pendingBlameFile: null,
     blame: { file: null, data: null, selected: null, cache: {} },
     files: null,
   };
 
   /* ---------- utilities ---------- */
   function $(sel, root) { return (root || document).querySelector(sel); }
+  var ESC_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;" };
   function esc(s) {
     if (s === null || s === undefined) return "";
-    return String(s).replace(/[&<>"'`]/g, function (c) {
-      return { "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;", "`": "&#96;" }[c];
-    });
+    return String(s).replace(/[&<>"'`]/g, function (c) { return ESC_MAP[c]; });
   }
   function fmtTime(iso) {
     if (!iso) return "";
@@ -418,7 +454,6 @@
     if (isNaN(d.getTime())) return iso;
     return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
-  function plural(n, one, many) { return n === 1 ? one : (many || one + "s"); }
 
   function apiFetch(path) {
     return fetch(path).then(function (res) {
@@ -435,6 +470,18 @@
     box.classList.remove("hidden");
   }
   function clearError() { $("#global-error").classList.add("hidden"); }
+
+  /* ---------- toasts ---------- */
+  function toast(msg) {
+    var wrap = $("#toasts");
+    var el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = msg;
+    wrap.appendChild(el);
+    window.setTimeout(function () { el.classList.add("out"); }, 2600);
+    window.setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 3000);
+    while (wrap.children.length > 4) { wrap.removeChild(wrap.firstChild); }
+  }
 
   /* ---------- theme ---------- */
   function applyTheme(theme) {
@@ -463,6 +510,108 @@
       ? '<span class="chip b-success">committed</span>'
       : '<span class="chip b-warning">pending</span>';
   }
+  function idChip(id) {
+    return '<span class="chip id clickable" data-copy-id="' + esc(id) + '" title="Click to copy ' + esc(id) + '" role="button" tabindex="0">' + esc(id) + "</span>";
+  }
+  function copyText(text, after) {
+    var done = function () { if (after) after(); };
+    var fallback = function () {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) { /* ignore */ }
+      document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(fallback);
+    } else { fallback(); }
+  }
+
+  /* ---------- live auto-refresh ---------- */
+  var POLL_MS = 4000;
+  var pollPaused = false;
+  var pollSig = null;
+
+  function setLive(mode) {
+    var btn = $("#live-toggle");
+    var dot = $(".live-dot", btn);
+    var label = $("#live-label");
+    btn.classList.remove("paused", "off");
+    if (mode === "paused") {
+      btn.classList.add("paused");
+      label.textContent = "Paused";
+    } else if (mode === "off") {
+      btn.classList.add("off");
+      label.textContent = "Offline";
+    } else {
+      label.textContent = "Live";
+    }
+  }
+
+  function initLiveToggle() {
+    $("#live-toggle").addEventListener("click", function () {
+      pollPaused = !pollPaused;
+      setLive(pollPaused ? "paused" : "live");
+      if (!pollPaused) pollTick();
+    });
+  }
+
+  function pollTick() {
+    if (pollPaused || document.hidden) return;
+    apiFetch("/api/health").then(function (h) {
+      setLive("live");
+      var sig = JSON.stringify([h.counts, h.models, h.branch]);
+      var changed = pollSig !== null && sig !== pollSig;
+      pollSig = sig;
+      updateTopFromHealth(h);
+      if (changed) onLedgerChanged(h);
+    }).catch(function () {
+      setLive("off");
+    });
+  }
+
+  function startPolling() { window.setInterval(pollTick, POLL_MS); }
+
+  function updateTopFromHealth(h) {
+    state.health = h;
+    $("#repo-name").textContent = h.repo || "CodeLedger";
+    $("#repo-branch").textContent = h.branch ? "\u00B7 " + h.branch : "";
+    $("#init-banner").classList.toggle("hidden", h.initialized !== false);
+  }
+
+  /* Called when pollTick sees the ledger (counts/models/branch) change. */
+  function onLedgerChanged(h) {
+    state.entries = null;
+    state.counts = null;
+    state.blame.cache = {};
+    /* fetchEntries diffs entry ids (announceNew) and re-renders the active view */
+    fetchEntries().then(function () {
+      if (state.view === "timeline") renderTimeline();
+      else if (state.view === "health" && state.health) renderHealth(state.health, { counts: state.counts });
+    }).catch(function () { /* poll error path already flags offline */ });
+    if (state.view === "blame") refreshBlameFiles();
+    else if (state.view === "capsule") loadCapsule();
+  }
+
+  function announceNew(entries) {
+    if (state.knownIds === null) {
+      state.knownIds = {};
+      entries.forEach(function (e) { if (e.id) state.knownIds[e.id] = true; });
+      return;
+    }
+    var added = entries.filter(function (e) { return e.id && !state.knownIds[e.id]; });
+    entries.forEach(function (e) { if (e.id) state.knownIds[e.id] = true; });
+    if (added.length) {
+      var names = added.slice(0, 3).map(function (e) { return e.id; }).join(", ");
+      toast(added.length === 1
+        ? "New ledger entry: " + names
+        : added.length + " new ledger entries: " + names + (added.length > 3 ? " \u2026" : ""));
+    } else {
+      toast("Ledger updated \u2014 view refreshed");
+    }
+  }
 
   /* ---------- navigation ---------- */
   function showView(name) {
@@ -482,16 +631,43 @@
     if (name === "health") loadHealth();
   }
 
-  /* ---------- timeline ---------- */
-  function loadTimeline() {
-    if (state.entries) { renderTimeline(); return; }
-    $("#tl-list").innerHTML = '<div class="skeleton" style="width:100%"></div><div class="skeleton" style="width:80%"></div><div class="skeleton" style="width:60%"></div>';
-    apiHealth().then(function () {
-      return apiFetch("/api/entries");
-    }).then(function (data) {
+  /* ---------- shared fetchers ---------- */
+  function apiHealth() {
+    return apiFetch("/api/health").then(function (h) {
+      updateTopFromHealth(h);
+      return h;
+    });
+  }
+
+  function fetchEntries() {
+    return apiFetch("/api/entries").then(function (data) {
       state.entries = data.entries || [];
       state.counts = data.counts || {};
+      announceNew(state.entries);
       fillModelFilter();
+      renderCountStrip();
+      return state.entries;
+    });
+  }
+
+  function renderCountStrip() {
+    var box = $("#tl-counts");
+    if (!box) return;
+    var c = state.counts || {};
+    if (typeof c.total !== "number") { box.innerHTML = ""; return; }
+    box.innerHTML =
+      '<span class="chip b-primary">' + c.total + " total</span>" +
+      '<span class="chip b-success">' + (c.committed || 0) + " committed</span>" +
+      '<span class="chip b-warning">' + (c.pending || 0) + " pending</span>" +
+      '<span class="chip">' + (c.tests_included || 0) + " with tests</span>" +
+      '<span class="chip ' + ((c.gate_fail || 0) > 0 ? "b-danger" : "b-success") + '">' + (c.gate_fail || 0) + " gate fails</span>";
+  }
+
+  /* ---------- timeline ---------- */
+  function loadTimeline() {
+    if (state.entries) { renderTimeline(); renderCountStrip(); return; }
+    $("#tl-list").innerHTML = '<div class="skeleton" style="width:100%"></div><div class="skeleton" style="width:80%"></div><div class="skeleton" style="width:60%"></div>';
+    apiHealth().then(fetchEntries).then(function () {
       renderTimeline();
       clearError();
     }).catch(function (err) { timelineFailed(err); });
@@ -543,10 +719,11 @@
     var newsFirst = visible.slice().reverse();
     list.innerHTML = newsFirst.map(function (e) {
       var files = (e.files || []).map(function (f) {
-        return '<span class="file-chip">' + esc(f) + "</span>";
+        return '<button type="button" class="file-chip clickable" data-blame-file="' + esc(f) +
+          '" title="Blame this file" tabindex="0">' + esc(f) + "</button>";
       }).join("");
       var rejected = (e.rejected_alternatives || []).map(function (alt) {
-        return '<div class="rejected-item"><b>' + esc(alt && alt.approach) + "</b> - " + esc(alt && alt.reason) + "</div>";
+        return '<div class="rejected-item"><b>' + esc(alt && alt.approach) + "</b> &#8212; " + esc(alt && alt.reason) + "</div>";
       }).join("");
       var redactions = e.redactions ? '<span class="chip b-secondary">&#128274; ' + e.redactions + " redacted</span>" : "";
       var promptHtml = e.prompt
@@ -555,7 +732,7 @@
       return (
         '<article class="card">' +
         '<div class="card-head">' +
-        '<span class="chip id" title="blame any listed file line to jump here">' + esc(e.id) + "</span>" +
+        idChip(e.id) +
         (e.model ? '<span class="chip b-secondary">' + esc(e.model) + "</span>" : "") +
         (e.tool ? '<span class="chip b-primary">' + esc(e.tool) + "</span>" : "") +
         statusChip(e.status) +
@@ -573,6 +750,10 @@
       );
     }).join("");
   }
+  function openBlameFile(file) {
+    state.pendingBlameFile = file;
+    showView("blame");
+  }
 
   /* ---------- blame ---------- */
   function loadBlameScreen() {
@@ -584,22 +765,44 @@
         clearError();
       });
     }).catch(function (err) {
-      $("#bl-viewer-wrap").innerHTML = '<div class="empty"><div>' + esc(err.message) + "</div></div>";
+      $("#bl-meta").textContent = err.message;
+      setBlameTableMessage('<div class="empty"><div>' + esc(err.message) + "</div></div>");
     });
+  }
+  function refreshBlameFiles() {
+    return apiFetch("/api/files").then(function (data) {
+      var fresh = data.files || [];
+      var same = JSON.stringify(fresh) === JSON.stringify(state.files);
+      state.files = fresh;
+      if (same) return;
+      populateFiles();
+      toast("File list refreshed \u2014 your selection was kept");
+    }).catch(function () { /* offline indicator handles it */ });
   }
   function populateFiles() {
     var sel = $("#bl-file");
     var files = state.files || [];
+    var current = sel.value;
     if (!files.length) {
       sel.innerHTML = '<option value="">(no tracked files yet)</option>';
+      $("#bl-meta").textContent = "";
       return;
     }
     sel.innerHTML = files.map(function (f) { return '<option value="' + esc(f) + '">' + esc(f) + "</option>"; }).join("");
+    if (current && files.indexOf(current) !== -1) { sel.value = current; return; }
+    var pending = state.pendingBlameFile;
+    if (pending && files.indexOf(pending) !== -1) {
+      state.pendingBlameFile = null;
+      sel.value = pending;
+      loadBlame(pending);
+      return;
+    }
     var preferred = files.filter(function (f) { return /\.(py|js|ts|jsx|tsx|md)$/.test(f); });
     var pick = preferred.length ? preferred[0] : files[0];
     blPickBest(pick, files);
   }
   function blPickBest(preferred, files) {
+    var sel = $("#bl-file");
     /* Prefer a file that appears in entries' files lists. */
     var entryFiles = {};
     (state.entries || []).forEach(function (e) { (e.files || []).forEach(function (f) { entryFiles[f] = true; }); });
@@ -608,10 +811,13 @@
     else if (files.indexOf(preferred) !== -1) { sel.value = preferred; }
     loadBlame(sel.value);
   }
+  function setBlameTableMessage(html) {
+    $("#bl-code").innerHTML = '<tr><td class="msg-cell" colspan="2">' + html + "</td></tr>";
+  }
   function loadBlame(file) {
     var table = $("#bl-code");
     $("#bl-meta").textContent = "loading\u2026";
-    table.innerHTML = '<div class="skeleton" style="width:90%"></div>';
+    setBlameTableMessage('<div class="skeleton" style="width:90%"></div><div class="skeleton" style="width:70%"></div>');
     apiFetch("/api/blame?file=" + encodeURIComponent(file)).then(function (data) {
       state.blame.file = file;
       state.blame.data = data;
@@ -620,19 +826,23 @@
       $("#bl-meta").textContent = (data.lines || []).length + " lines";
       clearError();
     }).catch(function (err) {
-      $("#bl-meta").textContent = "";
-      table.innerHTML = '<div class="empty" style="display:block"><div>' + esc(err.message) + "</div></div>";
+      $("#bl-meta").textContent = err.message;
+      setBlameTableMessage('<div class="empty"><div>' + esc(err.message) + "</div></div>");
     });
   }
   function renderCode(data) {
     var table = $("#bl-code");
     var lines = data.lines || [];
     var maxShow = 2500;
+    var noteHtml = "";
     if (lines.length > maxShow) {
-      table.innerHTML = '<div class="small muted" style="display:block;padding:12px">File too large; showing first ' + maxShow + " lines.</div>";
+      noteHtml = "File too large; showing first " + maxShow + " lines.";
       lines = lines.slice(0, maxShow);
     }
     var frag = [];
+    if (noteHtml) {
+      frag.push('<tr><td class="msg-cell" colspan="2"><div class="small muted">' + esc(noteHtml) + "</div></td></tr>");
+    }
     lines.forEach(function (l) {
       var cls = [];
       if (l.ai) cls.push("ai");
@@ -679,16 +889,16 @@
       reveal.entries.forEach(function (e) {
         html += '<div class="entry-block">' +
           '<div class="entry-head">' +
-          '<span class="chip id">' + esc(e.id) + "</span>" +
+          idChip(e.id) +
           (e.model ? '<span class="chip b-secondary">' + esc(e.model) + "</span>" : "") +
           (e.tool ? '<span class="chip b-primary">' + esc(e.tool) + "</span>" : "") +
           statusChip(e.status) + gateChip(e.gate_result) +
           (e.tests_included ? '<span class="chip b-success">&#10003; tests</span>' : '<span class="chip">no tests</span>') +
           "</div>" +
           '<div class="lbl">prompt</div><div class="prose">' + esc(e.prompt) + "</div>" +
-          '<div class="lbl">decision</div><div class="prose">' + esc(e.decision || "-") + "</div>" +
+          '<div class="lbl">decision</div><div class="prose">' + esc(e.decision || "&#8212;") + "</div>" +
           (e.files && e.files.length ? '<div class="lbl">files</div><div class="files-row">' +
-            e.files.map(function (f) { return '<span class="file-chip">' + esc(f) + "</span>"; }).join("") + "</div>" : "") +
+            e.files.map(function (f) { return '<button type="button" class="file-chip clickable" data-blame-file="' + esc(f) + '">' + esc(f) + "</button>"; }).join("") + "</div>" : "") +
           "</div>";
       });
     } else if (!reveal.uncommitted) {
@@ -712,26 +922,36 @@
       body.innerHTML = '<div class="empty"><div>' + esc(err.message) + "</div></div>";
     });
   }
+  /* Line-based markdown-lite: never emits raw text, always escapes first. */
   function mdLite(text) {
-    var escaped = esc(text);
-    return escaped
-      .replace(/^### (.*)$/gm, "<h3>$1</h3>")
-      .replace(/^## (.*)$/gm, "<h2>$1</h2>")
-      .replace(/^# (.*)$/gm, "<h1>$1</h1>")
-      .replace(/^\s*[-*] (.*)$/gm, "<li>$1</li>")
-      .replace(/`([^`\n]+)`/g, "<code>$1</code>")
-      .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
-      .replace(/(<li>[^<]*(?:<(?:\/?(?:b|code)>)[^<]*)*<\/li>)(?!<li>)/g, "") /* keep simple: lists as-is */
-      .replace(/^(?!<[hul])(.+)$/gm, "<p>$1</p>")
-      .replace(/(<p>\n?)<li>/g, "<ul><li>")
-      .replace(/<\/li><p>/g, "</li><li>");
+    var out = [], inList = false;
+    function closeList() { if (inList) { out.push("</ul>"); inList = false; } }
+    function inline(s) {
+      return s
+        .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+    }
+    esc(text).split(/\r?\n/).forEach(function (raw) {
+      var line = raw.replace(/\s+$/, "");
+      var m;
+      if (/^\s*$/.test(line)) { closeList(); return; }
+      if ((m = line.match(/^###\s+(.*)$/))) { closeList(); out.push("<h3>" + inline(m[1]) + "</h3>"); }
+      else if ((m = line.match(/^##\s+(.*)$/))) { closeList(); out.push("<h2>" + inline(m[1]) + "</h2>"); }
+      else if ((m = line.match(/^#\s+(.*)$/))) { closeList(); out.push("<h1>" + inline(m[1]) + "</h1>"); }
+      else if ((m = line.match(/^\s*[-*]\s+(.*)$/))) {
+        if (!inList) { out.push("<ul>"); inList = true; }
+        out.push("<li>" + inline(m[1]) + "</li>");
+      } else { closeList(); out.push("<p>" + inline(line) + "</p>"); }
+    });
+    closeList();
+    return out.join("\n");
   }
   function renderCapsule(data) {
     var body = $("#cap-body");
     state.capsuleText = data.text || "";
-    body.innerHTML = mdLite(state.capsuleText).replace(/<\/h2><p>\s*-/g, "</h2><ul><li>");
+    body.innerHTML = mdLite(state.capsuleText);
     $("#cap-note").textContent = data.missing
-      ? "preview - not written yet. Run `ledger capsule` to save it."
+      ? "preview \u2014 not written yet. Run `ledger capsule` to save it."
       : "rendered from .ledger/CAPSULE.md";
   }
 
@@ -742,6 +962,10 @@
     $("#hp-charts").innerHTML = "";
     apiHealth().then(function (h) {
       return apiFetch("/api/entries").then(function (e) {
+        state.entries = e.entries || [];
+        state.counts = e.counts || {};
+        state.knownIds = null;
+        announceNew(state.entries);
         renderHealth(h, e);
         clearError();
       });
@@ -750,7 +974,7 @@
     });
   }
   function renderHealth(h, entriesData) {
-    var counts = h.counts || {};
+    var counts = h.counts || (entriesData && entriesData.counts) || {};
     var total = counts.total || 0;
     var committed = counts.committed || 0;
     var pending = counts.pending || 0;
@@ -758,7 +982,7 @@
     var red = h.redaction_placeholders || 0;
     $("#hp-cards").innerHTML =
       statCard("Entries", total, committed + " committed / " + pending + " pending") +
-      statCard("With tests", total ? Math.round(100 * tests / total) + "%" : "\u2013", tests + " of " + total + " entries") +
+      statCard("With tests", total ? Math.round(100 * tests / total) + "%" : "&#8211;", tests + " of " + total + " entries") +
       statCard("Redactions", red, "placeholders kept in redact_map.json");
     $("#hp-charts").innerHTML =
       gateChart(counts) +
@@ -771,9 +995,6 @@
     var pass = counts.gate_pass || 0, fail = counts.gate_fail || 0, bypassed = counts.gate_bypassed || 0, na = counts.gate_na || 0;
     var total = Math.max(1, pass + fail + bypassed + na);
     var w = 760;
-    function seg(n, color) { return n ? '<rect x="0" y="0" width="' + Math.max(0, (n / total) * w) + '" height="26" rx="7" fill="' + color + '"></rect>' : ""; }
-    var parts = [];
-    function shift(n) { return n / total * w; }
     var svg = '<svg viewBox="0 0 ' + w + ' 26" width="100%" height="26" role="img" aria-label="Gate outcomes">';
     var x = 0;
     [[pass, "var(--success)"], [fail, "var(--danger)"], [bypassed, "var(--warning)"], [na, "var(--border)"]].forEach(function (pair) {
@@ -800,19 +1021,8 @@
     var rows = names.length ? names.map(function (n) {
       var pct = Math.round(100 * models[n] / max);
       return '<div class="hbar-row"><span class="mono small">' + esc(n) + '</span><div class="hbar-track"><div class="hbar-fill" style="width:' + pct + '%;background:var(--secondary)"></div></div><span class="small muted">' + models[n] + "</span></div>";
-    }).join("") : '<div class="muted small">No entries yet - run <code>ledger demo</code> or <code>ledger log</code>.</div>';
+    }).join("") : '<div class="muted small">No entries yet &#8212; run <code>ledger demo</code> or <code>ledger log</code>.</div>';
     return '<div class="chart-card"><div class="chart-title">Entries per model</div>' + rows + "</div>";
-  }
-
-  /* ---------- health/entries shared fetch ---------- */
-  function apiHealth() {
-    return apiFetch("/api/health").then(function (h) {
-      state.health = h;
-      $("#repo-name").textContent = h.repo || "CodeLedger";
-      $("#repo-branch").textContent = h.branch ? "· " + h.branch : "";
-      $("#init-banner").classList.toggle("hidden", h.initialized !== false && (h.counts ? h.counts.total >= 0 : true));
-      return h;
-    });
   }
 
   /* ---------- wiring ---------- */
@@ -831,7 +1041,30 @@
     });
     $("#tl-refresh").addEventListener("click", function () {
       state.entries = null;
+      state.knownIds = null;
       loadTimeline();
+    });
+    /* File chips jump straight to the Blame screen for that file. */
+    $("#tl-list").addEventListener("click", function (ev) {
+      var chip = ev.target.closest("[data-blame-file]");
+      if (chip) openBlameFile(chip.getAttribute("data-blame-file"));
+      var idChipEl = ev.target.closest("[data-copy-id]");
+      if (idChipEl) {
+        copyText(idChipEl.getAttribute("data-copy-id"), function () {
+          toast("Entry ID copied");
+        });
+      }
+    });
+    $("#tl-list").addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") {
+        var chip = ev.target.closest("[data-blame-file]");
+        if (chip) { ev.preventDefault(); openBlameFile(chip.getAttribute("data-blame-file")); }
+        var idChipEl = ev.target.closest("[data-copy-id]");
+        if (idChipEl) {
+          ev.preventDefault();
+          copyText(idChipEl.getAttribute("data-copy-id"), function () { toast("Entry ID copied"); });
+        }
+      }
     });
   }
   function initBlameControls() {
@@ -857,32 +1090,30 @@
       $("#bl-aside-title").textContent = "Line details";
       document.querySelectorAll("#bl-code tr.selected").forEach(function (tr) { tr.classList.remove("selected"); });
     });
+    /* File chips inside the aside jump to that file's blame. */
+    $("#bl-aside-body").addEventListener("click", function (ev) {
+      var chip = ev.target.closest("[data-blame-file]");
+      if (chip) {
+        var f = chip.getAttribute("data-blame-file");
+        if (state.files && state.files.indexOf(f) !== -1) {
+          $("#bl-file").value = f;
+          state.blame.cache = {};
+          loadBlame(f);
+        } else {
+          toast("File is not tracked yet");
+        }
+      }
+    });
   }
   function initCapsuleControls() {
     $("#cap-copy").addEventListener("click", function () {
-      var text = state.capsuleText || "";
-      var done = function () {
+      copyText(state.capsuleText || "", function () {
         var btn = $("#cap-copy");
         var original = btn.innerHTML;
         btn.innerHTML = "&#10003;&nbsp;Copied";
         window.setTimeout(function () { btn.innerHTML = original; }, 1600);
-      };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done).catch(function () { copyFallback(text, done); });
-      } else {
-        copyFallback(text, done);
-      }
+      });
     });
-  }
-  function copyFallback(text, done) {
-    var ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand("copy"); done(); } catch (e) { /* ignore */ }
-    document.body.removeChild(ta);
   }
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -891,10 +1122,17 @@
     initTimelineControls();
     initBlameControls();
     initCapsuleControls();
-    $("#hp-refresh").addEventListener("click", function () { state.entries = null; loadHealth(); });
+    initLiveToggle();
+    $("#hp-refresh").addEventListener("click", function () {
+      state.entries = null;
+      state.knownIds = null;
+      loadHealth();
+    });
     var start = (location.hash || "#timeline").replace("#", "");
     if (["timeline", "blame", "capsule", "health"].indexOf(start) === -1) start = "timeline";
     showView(start);
+    pollTick();
+    startPolling();
   });
 })();
 </script>

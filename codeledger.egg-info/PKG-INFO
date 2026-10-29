@@ -47,7 +47,7 @@ point** — all offline, all deterministic, all stored as plain text you can
 | **Capsule** | `ledger capsule` | `CAPSULE.md`: newest decisions, "Don't do this again" list, recently changed files, open items. Paste it into any AI tool to restore context. Auto-refreshed: re-rendered by `ledger log` after each pending entry and by the post-commit hook after linking. |
 | **Redact** | `ledger redact secret.txt` / `ledger restore` | Replaces secrets with numbered placeholders and keeps a reversible map (which is itself kept out of git). |
 | **Status** | `ledger status` | Totals, pending entries and gate statistics. |
-| **UI** | `ledger ui` | Local dashboard (Timeline / Blame / Capsule / Health) on `http://127.0.0.1:8765`, standard library only. |
+| **UI** | `ledger ui` | Local dashboard (Timeline / Blame / Capsule / Health) on `http://127.0.0.1:8765`, standard library only. Auto-refreshes every 4 seconds with a live indicator + toasts on new entries; clickable file chips jump to blame, entry IDs copy with a click. |
 | **Hooks** | installed by `ledger init` | `pre-commit` runs the gate; `prepare-commit-msg` stamps a `Ledger-ID: L-0001, ...` trailer; `post-commit` links entries to their commit. |
 | **Demo** | `ledger demo` | Builds `./ledger-demo/`, a scripted sample repo with a planted double-discount bug, 6 entries, a blocked-then-fixed gate story and a `DEMO_SCRIPT.md`. |
 
