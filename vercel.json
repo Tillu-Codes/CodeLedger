@@ -12,5 +12,10 @@
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/**/*.py": {
+      "excludeFiles": "{tests/**,ledger-demo/**,tools/**,build/**,.pytest_cache/**,codeledger.egg-info/**}"
+    }
+  }
 }

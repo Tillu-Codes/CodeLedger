@@ -1,0 +1,156 @@
+{
+ "entries": [
+  {
+   "id": "L-0001",
+   "timestamp": "2026-10-26T09:12:00+00:00",
+   "prompt": "Create a shopping cart module with add/remove and subtotals",
+   "model": "claude-sonnet-4.5",
+   "tool": "opencode",
+   "files": [
+    "cart.py"
+   ],
+   "decision": "Scaffold Cart with validation; float money kept for demo simplicity",
+   "rejected_alternatives": [],
+   "status": "committed",
+   "commit": "2c347b15b654f24a2288fe89fac7ca95087eb0f8",
+   "tests_included": false,
+   "gate_result": "bypassed",
+   "redactions": 0
+  },
+  {
+   "id": "L-0002",
+   "timestamp": "2026-10-26T09:26:00+00:00",
+   "prompt": "Add a configurable sales tax and make the grand total explicit",
+   "model": "gpt-4.1",
+   "tool": "cursor",
+   "files": [
+    "cart.py",
+    "tests/test_cart.py"
+   ],
+   "decision": "Tax lives on the cart as a percentage; get_total applies it once - tests added in the same change",
+   "rejected_alternatives": [
+    {
+     "approach": "Hardcode the tax rate as a module constant",
+     "reason": "Rates differ per store; a settable field keeps the module reusable"
+    }
+   ],
+   "status": "committed",
+   "commit": "a08b9a86190f0ce8a22ffe1ec05780d16c20c92f",
+   "tests_included": true,
+   "gate_result": "pass",
+   "redactions": 0
+  },
+  {
+   "id": "L-0003",
+   "timestamp": "2026-10-26T10:03:00+00:00",
+   "prompt": "Add a holiday discount: apply_discount(pct) should reduce the grand total",
+   "model": "claude-sonnet-4.5",
+   "tool": "opencode",
+   "files": [
+    "cart.py"
+   ],
+   "decision": "Store the discount on the cart and apply it inside get_total (bug: applied twice)",
+   "rejected_alternatives": [
+    {
+     "approach": "Return (subtotal, discount) and let the UI compute totals",
+     "reason": "Pushes arithmetic to every caller; totals become inconsistent across views"
+    }
+   ],
+   "status": "committed",
+   "commit": "9f0d01a8b1ad858536229771f8bca8c8c3992ba1",
+   "tests_included": false,
+   "gate_result": "bypassed",
+   "redactions": 0
+  },
+  {
+   "id": "L-0004",
+   "timestamp": "2026-10-26T10:41:00+00:00",
+   "prompt": "Add a receipt formatter printing items and the grand total",
+   "model": "gemini-2.5-pro",
+   "tool": "claude-code",
+   "files": [
+    "receipt.py"
+   ],
+   "decision": "Render from cart.items() plus get_total; no new cart state",
+   "rejected_alternatives": [
+    {
+     "approach": "Render the receipt as HTML directly",
+     "reason": "The demo is terminal-only; HTML invites injection issues"
+    }
+   ],
+   "status": "committed",
+   "commit": "2e21789ac33c8a33daee3a54aa75814dbaa4f216",
+   "tests_included": true,
+   "gate_result": "pass",
+   "redactions": 0
+  },
+  {
+   "id": "L-0005",
+   "timestamp": "2026-10-26T11:07:00+00:00",
+   "prompt": "Pin the double-discount bug with an xfail test so it cannot silently regress",
+   "model": "gemini-2.5-pro",
+   "tool": "claude-code",
+   "files": [
+    "tests/test_cart.py"
+   ],
+   "decision": "xFail test documents the known bug tracked in L-0003",
+   "rejected_alternatives": [],
+   "status": "committed",
+   "commit": "a90339f520e1f71cd256971c3bd4842575edf1ff",
+   "tests_included": true,
+   "gate_result": "pass",
+   "redactions": 0
+  },
+  {
+   "id": "L-0006",
+   "timestamp": "2026-10-26T11:39:00+00:00",
+   "prompt": "New session in a new tool: read the capsule first, then add quantity rollups for receipts",
+   "model": "gpt-4.1",
+   "tool": "cursor",
+   "files": [
+    "cart.py",
+    "tests/test_cart.py"
+   ],
+   "decision": "Added total_items(); the capsule confirmed rejected approaches; the name-keyed dict stays",
+   "rejected_alternatives": [
+    {
+     "approach": "Track items as a list and scan per add",
+     "reason": "Name-keyed dict keeps merges O(1); list scanning resurfaces per line"
+    }
+   ],
+   "status": "committed",
+   "commit": "46f49e3e17159bf29fb62f408d73136d8d01db00",
+   "tests_included": true,
+   "gate_result": "pass",
+   "redactions": 0
+  },
+  {
+   "id": "L-0007",
+   "timestamp": "2026-10-29T10:07:52Z",
+   "prompt": "gate replay",
+   "model": "gpt-4.1",
+   "tool": "cursor",
+   "files": [
+    "cart.py"
+   ],
+   "decision": "Replaying the gate",
+   "rejected_alternatives": [],
+   "status": "pending",
+   "commit": null,
+   "tests_included": false,
+   "gate_result": "fail",
+   "redactions": 0
+  }
+ ],
+ "counts": {
+  "total": 7,
+  "pending": 1,
+  "committed": 6,
+  "tests_included": 4,
+  "gate_pass": 4,
+  "gate_fail": 1,
+  "gate_bypassed": 2,
+  "gate_na": 0,
+  "redactions": 0
+ }
+}

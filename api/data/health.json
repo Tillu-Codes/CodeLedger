@@ -1,0 +1,23 @@
+{
+ "ok": true,
+ "repo": "ledger-demo",
+ "branch": "main",
+ "initialized": true,
+ "counts": {
+  "total": 7,
+  "pending": 1,
+  "committed": 6,
+  "tests_included": 4,
+  "gate_pass": 4,
+  "gate_fail": 1,
+  "gate_bypassed": 2,
+  "gate_na": 0,
+  "redactions": 0
+ },
+ "models": {
+  "claude-sonnet-4.5": 2,
+  "gpt-4.1": 3,
+  "gemini-2.5-pro": 2
+ },
+ "redaction_placeholders": 0
+}
