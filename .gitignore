@@ -1,0 +1,11 @@
+# Vercel build output
+dist/
+
+# Python
+__pycache__/
+*.egg-info/
+.pytest_cache/
+build/
+
+# Ledger runtime data (demo repo has its own)
+.ledger/redact_map.json
