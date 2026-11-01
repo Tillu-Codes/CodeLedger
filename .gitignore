@@ -1,11 +1,44 @@
 # Vercel build output
 dist/
 
-# Python
+# Python artifacts
 __pycache__/
+*.py[cod]
+*$py.class
+build/
 *.egg-info/
 .pytest_cache/
-build/
+.ruff_cache/
+.mypy_cache/
 
-# Ledger runtime data (demo repo has its own)
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment / secrets - never commit these
+.env
+.env.*
+*.pem
+*.pfx
+*.p12
+id_rsa*
+!*.example.env
+
+# Ledger runtime data (capsule + entries.json are meant to be committed)
 .ledger/redact_map.json
+.ledger/.lock
+
+# Local demo repo (a nested git repo with its own history; publish separately
+# or wire it up as a proper submodule with a .gitmodules file)
+ledger-demo/
+
+# Local deployment / tooling state
+.vercel/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
